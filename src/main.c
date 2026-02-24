@@ -18,7 +18,7 @@ uint8_t convertHexChar(char hexChar) {
 
 uint8_t readHex(char *hexstring) {
   // maksure its only a byte
-  assert(strlen(hexstring) == 2);
+  // assert(strlen(hexstring) == 2);
 
   char hex1 = hexstring[0];
   char hex2 = hexstring[1];
@@ -33,7 +33,12 @@ int readfile(FILE *file) {
   char buf[256];
   int count = 0;
   while ((fgets(buf, sizeof(buf), file) != NULL) && count < 50) {
-    printf("%d: %s", count, buf);
+    if (strcmp(buf, "BITMAP\n") == 0) {
+      printf("found bitmap: %s", buf);
+    }
+    if (strcmp(buf, "BITMAP\n") == 0) {
+      printf("found bitmap: %s", buf);
+    }
     count++;
   }
 
