@@ -80,10 +80,12 @@ int init_bdf_from_file(FILE *file, Font *font) {
 
     Token token = find_token(buf);
 
-    if (reading_bitmap) {
+    if (reading_bitmap && token != ENDCHAR) {
       // Read the hex!
-      sscanf(bufcpy, "%x", &curr_bitmap->rows[curr_bitmap_row]);
+      sscanf(buf, "%x", &curr_bitmap->rows[curr_bitmap_row]);
       curr_bitmap_row++;
+
+      printf("---\n Reading HEX: %s \n Current CHAR: %c \n", buf, curr_char);
     }
 
     switch (token) {
@@ -116,7 +118,9 @@ int init_bdf_from_file(FILE *file, Font *font) {
       break;
     case ENCODING:
       // the current character of the bitmap
-      sscanf(bufcpy, "%*s %c", &curr_char);
+      int char_code;
+      sscanf(bufcpy, "%*s %d", &char_code);
+      curr_char = (char)char_code;
       break;
     case BITMAP:
       // start reading hex
