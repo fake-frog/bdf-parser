@@ -3,12 +3,12 @@
 typedef struct {
   char c;
   int size;
-  uint8_t rows[];
+  unsigned int rows[];
 } Bitmap;
 
 typedef struct {
   int cap_height;
-  int x_heigth;
+  int x_height;
   int pixel_size;
   int quad_width;
   int font_descent;
@@ -17,35 +17,6 @@ typedef struct {
   Bitmap **bitmaps;
 } Font;
 
-uint8_t convertHexChar(char hexChar) {
-  uint8_t convertedInt = 0;
-
-  if (hexChar >= '0' && hexChar <= '9') {
-    convertedInt = hexChar - '0';
-  }
-  if (hexChar >= 'A' && hexChar <= 'F') {
-    convertedInt = hexChar - 'A' + 10;
-  }
-  if (hexChar >= 'a' && hexChar <= 'f') {
-    convertedInt = hexChar - 'a' + 10;
-  }
-
-  return convertedInt;
-}
-
-uint8_t readHex(char *hexstring) {
-  // maksure its only a byte
-  // assert(strlen(hexstring) == 2);
-
-  char hex1 = hexstring[0];
-  char hex2 = hexstring[1];
-
-  uint8_t convertedHex1 = convertHexChar(hex1) * 16;
-  uint8_t convertedHex2 = convertHexChar(hex2);
-
-  return convertedHex1 + convertedHex2;
-}
-
 typedef enum {
   CAP_HEIGHT,
   X_HEIGTH,
@@ -53,7 +24,6 @@ typedef enum {
   QUAD_WIDTH,
   FONT_DESCENT,
   FONT_ASCENT,
-  CHAR_COUNT,
   ENCODING,
   BITMAP,
   ENDCHAR,
@@ -68,7 +38,6 @@ const char *tokens_strings[] = {[CAP_HEIGHT] = "CAP_HEIGHT",
                                 [QUAD_WIDTH] = "QUAD_WIDTH",
                                 [FONT_DESCENT] = "FONTT_DESCENT",
                                 [FONT_ASCENT] = "FONT_ASCENT",
-                                [CHAR_COUNT] = "CHAR_COUNT",
                                 [ENCODING] = "ENCODING",
                                 [BITMAP] = "BITMAP",
                                 [ENDCHAR] = "ENDCHAR",
@@ -88,60 +57,87 @@ Token find_token(char *line) {
   return SKIP;
 }
 
-int readfile(FILE *file) {
+int init_bdf_from_file(FILE *file, Font *font) {
 
   char buf[256];
   int count = 0;
 
+  // current bitmap being read
+  char curr_char = 0;
+  int reading_bitmap = 0;
+  Bitmap *curr_bitmap;
+  int curr_bitmap_row = 0;
+
+  int curr_bitmap_index = 0;
+
   while ((fgets(buf, sizeof(buf), file) != NULL) && count < 50) {
-    // count++;
 
     char bufcpy[256];
     strcpy(bufcpy, buf);
+
     buf[strcspn(buf, "\n")] = '\0';
     buf[strcspn(buf, " ")] = '\0';
 
     Token token = find_token(buf);
+
+    if (reading_bitmap) {
+      // Read the hex!
+      sscanf(bufcpy, "%x", &curr_bitmap->rows[curr_bitmap_row]);
+      curr_bitmap_row++;
+    }
+
     switch (token) {
+      // grab variables in header
     case SKIP:
-      printf("SKIPED: %s\n", bufcpy);
       continue;
       break;
     case CAP_HEIGHT:
-      printf("found: %s\n", bufcpy);
+      sscanf(bufcpy, "%*s %d", &font->cap_height);
       break;
     case X_HEIGTH:
-      printf("found: %s\n", bufcpy);
+      sscanf(bufcpy, "%*s %d", &font->x_height);
       break;
     case PIXEL_SIZE:
-      printf("found: %s\n", bufcpy);
+      sscanf(bufcpy, "%*s %d", &font->pixel_size);
       break;
     case QUAD_WIDTH:
-      printf("found: %s\n", bufcpy);
+      sscanf(bufcpy, "%*s %d", &font->quad_width);
       break;
     case FONT_DESCENT:
-      printf("found: %s\n", bufcpy);
+      sscanf(bufcpy, "%*s %d", &font->font_descent);
       break;
     case FONT_ASCENT:
-      printf("found: %s\n", bufcpy);
-      break;
-    case CHAR_COUNT:
-      printf("found: %s\n", bufcpy);
-      break;
-    case ENCODING:
-      printf("found: %s\n", bufcpy);
-      break;
-    case BITMAP:
-      printf("found: %s\n", bufcpy);
-      break;
-    case ENDCHAR:
-      printf("found: %s\n", bufcpy);
+      sscanf(bufcpy, "%*s %d", &font->font_ascent);
       break;
     case CHARS:
-      printf("found: %s\n", bufcpy);
+      // chars is the count of characters in this file
+      sscanf(bufcpy, "%*s %d", &font->char_count);
+      font->bitmaps = malloc(sizeof(Bitmap *) * font->char_count);
+      break;
+    case ENCODING:
+      // the current character of the bitmap
+      sscanf(bufcpy, "%*s %c", &curr_char);
+      break;
+    case BITMAP:
+      // start reading hex
+      reading_bitmap = 1;
+
+      // make current bitmap
+      curr_bitmap =
+          malloc(sizeof(Bitmap) + font->pixel_size * sizeof(unsigned int));
+      curr_bitmap->c = curr_char;
+      curr_bitmap->size = font->pixel_size;
+      break;
+    case ENDCHAR:
+      // stop reading hex
+      reading_bitmap = 0;
+      curr_bitmap_row = 0;
+
+      // store bitmap
+      font->bitmaps[curr_bitmap_index] = curr_bitmap;
+      curr_bitmap_index++;
       break;
     case ENDFONT:
-      printf("found: %s\n", bufcpy);
       break;
     }
   }
@@ -155,7 +151,11 @@ int main() {
     perror("fopen");
     return 1;
   }
-  readfile(file);
+
+  Font font = {0};
+
+  init_bdf_from_file(file, &font);
   fclose(file);
+
   return 0;
 }
