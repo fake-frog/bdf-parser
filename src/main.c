@@ -38,7 +38,7 @@ const char *tokens_strings[] = {
   [X_HEIGTH]      = "X_HEIGHT",
   [PIXEL_SIZE]    = "PIXEL_SIZE",
   [QUAD_WIDTH]    = "QUAD_WIDTH",
-  [FONT_DESCENT]  = "FONTT_DESCENT",
+  [FONT_DESCENT]  = "FONT_DESCENT",
   [FONT_ASCENT]   = "FONT_ASCENT",
   [ENCODING]      = "ENCODING",
   [BITMAP]        = "BITMAP",
@@ -51,7 +51,6 @@ const char *tokens_strings[] = {
 Token find_token(char *line) {
   const int tokens_strings_size =
       sizeof(tokens_strings) / sizeof(tokens_strings[0]);
-
   for (int i = 0; i < tokens_strings_size; i++) {
     if (strcmp(line, tokens_strings[i]) == 0) {
       return i;
@@ -61,12 +60,8 @@ Token find_token(char *line) {
 }
 
 int init_bdf_from_file(FILE *file, Font *font) {
-
   char buf[256];
   char bufcpy[256];
-
-  int count = 0;
-
   // current bitmap being read
   char curr_char = 0;
   int reading_bitmap = 0;
@@ -74,12 +69,13 @@ int init_bdf_from_file(FILE *file, Font *font) {
   int curr_bitmap_row = 0;
   int curr_bitmap_index = 0;
 
-  while ((fgets(buf, sizeof(buf), file) != NULL) && count < 50) {
+  int char_code = 0;
 
+  while (fgets(buf, sizeof(buf), file) != NULL) {
     // strip the new line and get first token
     strcpy(bufcpy, buf);
-    bufcpy[strcspn(buf, "\n")] = '\0';
-    bufcpy[strcspn(buf, " ")] = '\0';
+    bufcpy[strcspn(bufcpy, "\n")] = '\0';
+    bufcpy[strcspn(bufcpy, " ")] = '\0';
     Token token = find_token(bufcpy);
 
     if (reading_bitmap && token != ENDCHAR) {
@@ -106,7 +102,6 @@ int init_bdf_from_file(FILE *file, Font *font) {
       break;
     case ENCODING:
       // the current character of the bitmap
-      int char_code;
       sscanf(buf, "%*s %d", &char_code);
       curr_char = (char)char_code;
       break;
@@ -129,7 +124,6 @@ int init_bdf_from_file(FILE *file, Font *font) {
       break;
     }
   }
-
   return 0;
 }
 
