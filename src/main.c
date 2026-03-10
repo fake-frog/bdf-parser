@@ -1,134 +1,118 @@
 #include "include.h"
 
+typedef union {
+  char *name;
+  int val;
+} HeaderField;
+
 typedef struct {
+  HeaderField *header_fields;
   char c;
-  int size;
+  int bitmap_size;
+  int pixel_size;
   unsigned int rows[];
 } Bitmap;
 
 typedef struct {
-  int cap_height;
-  int x_height;
-  int pixel_size;
-  int quad_width;
-  int font_descent;
-  int font_ascent;
-  int char_count;
+  int header_fields_size;
+  HeaderField *header_fields;
+  int bitmaps_size;
   Bitmap **bitmaps;
+  int pixel_size;
 } Font;
 
 typedef enum {
-  CAP_HEIGHT,
-  X_HEIGTH,
-  PIXEL_SIZE,
-  QUAD_WIDTH,
-  FONT_DESCENT,
-  FONT_ASCENT,
-  ENCODING,
-  BITMAP,
-  ENDCHAR,
-  ENDFONT,
-  CHARS,
-  SKIP
-} Token;
+  START_FONT,
+  READ_HEADER,
+  READ_BITMAP_HEADER,
+  READ_BITMAP,
+  END_FONT
+} ReadState;
 
-// clang-format off
-const char *tokens_strings[] = {
-  [CAP_HEIGHT]    = "CAP_HEIGHT",
-  [X_HEIGTH]      = "X_HEIGHT",
-  [PIXEL_SIZE]    = "PIXEL_SIZE",
-  [QUAD_WIDTH]    = "QUAD_WIDTH",
-  [FONT_DESCENT]  = "FONT_DESCENT",
-  [FONT_ASCENT]   = "FONT_ASCENT",
-  [ENCODING]      = "ENCODING",
-  [BITMAP]        = "BITMAP",
-  [ENDCHAR]       = "ENDCHAR",
-  [CHARS]         = "CHARS",
-  [ENDFONT]       = "ENDFONT"
-};
-// clang-format on
+/* typedef enum { */
+/*   // TDOO */
+/* } Warnings; */
 
-Token find_token(char *line) {
-  const int tokens_strings_size =
-      sizeof(tokens_strings) / sizeof(tokens_strings[0]);
-  for (int i = 0; i < tokens_strings_size; i++) {
-    if (strcmp(line, tokens_strings[i]) == 0) {
-      return i;
+int read_header(FILE *file, Font *font) {
+  const int HEADER_FIELDS_SIZE = 128;
+  HeaderField *header_fields =
+      malloc(sizeof(HeaderField) * HEADER_FIELDS_SIZE); // todo free
+  int count = 0;
+  char line[256];
+  while (fgets(line, sizeof(line), file) != NULL ||
+         count <= HEADER_FIELDS_SIZE) {
+    HeaderField field = {0};
+    sscanf(line, "%s %d", field.name, &field.val);
+    header_fields[count] = field;
+    if (find_token(line) == CHARS) {
+      sscanf(line, "%*s %d", &font->bitmaps_size);
+      break;
     }
+    count++;
   }
-  return SKIP;
-}
-
-int init_bdf_from_file(FILE *file, Font *font) {
-  char buf[256];
-  char bufcpy[256];
-  // current bitmap being read
-  char curr_char = 0;
-  int reading_bitmap = 0;
-  Bitmap *curr_bitmap = 0;
-  int curr_bitmap_row = 0;
-  int curr_bitmap_index = 0;
-
-  int char_code = 0;
-
-  while (fgets(buf, sizeof(buf), file) != NULL) {
-    // strip the new line and get first token
-    strcpy(bufcpy, buf);
-    bufcpy[strcspn(bufcpy, "\n")] = '\0';
-    bufcpy[strcspn(bufcpy, " ")] = '\0';
-    Token token = find_token(bufcpy);
-
-    if (reading_bitmap && token != ENDCHAR) {
-      // Read the hex!
-      sscanf(bufcpy, "%x", &curr_bitmap->rows[curr_bitmap_row]);
-      curr_bitmap_row++;
-    }
-
-    switch (token) {
-      // clang-format off
-      // grab variables in header
-    case SKIP:         continue; break;
-    case CAP_HEIGHT:   sscanf(buf, "%*s %d", &font->cap_height); break;
-    case X_HEIGTH:     sscanf(buf, "%*s %d", &font->x_height); break;
-    case PIXEL_SIZE:   sscanf(buf, "%*s %d", &font->pixel_size); break;
-    case QUAD_WIDTH:   sscanf(buf, "%*s %d", &font->quad_width); break;
-    case FONT_DESCENT: sscanf(buf, "%*s %d", &font->font_descent); break;
-    case FONT_ASCENT:  sscanf(buf, "%*s %d", &font->font_ascent); break;
-      // clang-format on
-    case CHARS:
-      // chars is the count of characters in this file
-      sscanf(buf, "%*s %d", &font->char_count);
-      font->bitmaps = malloc(sizeof(Bitmap *) * font->char_count);
-      break;
-    case ENCODING:
-      // the current character of the bitmap
-      sscanf(buf, "%*s %d", &char_code);
-      curr_char = (char)char_code;
-      break;
-    case BITMAP:
-      reading_bitmap = 1; // start reading hex
-      // make current bitmap
-      curr_bitmap =
-          malloc(sizeof(Bitmap) + font->pixel_size * sizeof(unsigned int));
-      curr_bitmap->c = curr_char;
-      curr_bitmap->size = font->pixel_size;
-      break;
-    case ENDCHAR:
-      reading_bitmap = 0; // stop reading hex
-      curr_bitmap_row = 0;
-      // store bitmap
-      font->bitmaps[curr_bitmap_index] = curr_bitmap;
-      curr_bitmap_index++;
-      break;
-    case ENDFONT:
-      break;
-    }
-  }
+  font->header_fields = header_fields;
+  // printf("READ HEADER\n");
   return 0;
 }
 
+Bitmap *read_bitmap(FILE *file, int pixel_size) {
+
+  const int HEADER_FIELDS_SIZE = 16;
+  HeaderField *header_fields =
+      malloc(sizeof(HeaderField) * HEADER_FIELDS_SIZE); // todo free
+
+  int count = 0;
+  char line[256];
+  char curr_char = 0;
+  int encoding = 0;
+  while (fgets(line, sizeof(line), file) != NULL ||
+         count <= HEADER_FIELDS_SIZE) {
+    if (find_token(line) == BITMAP) {
+      break;
+    }
+
+    if (find_token(line) == ENCODING) {
+      sscanf(line, "%*s %d", &encoding);
+      curr_char = (char)encoding;
+    };
+
+    HeaderField field = {0};
+    sscanf(line, "%s %d", field.name, &field.val);
+    header_fields[count] = field;
+  }
+
+  // printf("READ BITMAP HEADER\n");
+
+  Bitmap *bitmap = malloc(sizeof(Bitmap) + pixel_size * sizeof(unsigned int));
+  bitmap->c = curr_char;
+  count = 0;
+  while (fgets(line, sizeof(line), file) != NULL) {
+    if (find_token(line) == ENDCHAR || count <= pixel_size) {
+      break;
+    }
+    sscanf(line, "%x", &bitmap->rows[count]);
+    count++;
+  }
+
+  // printf("READ BITMAP -> %c -- %d\n", bitmap->c, encoding);
+  return bitmap;
+}
+
+int init_bdf_from_file(FILE *file, Font *font) {
+  int header_warning = read_header(file, font);
+  char line[256];
+  fgets(line, sizeof(line), file);
+  font->bitmaps = malloc(sizeof(Bitmap *) * font->bitmaps_size);
+  for (int i = 0; i < font->bitmaps_size; i++) {
+    Bitmap *bitmap = read_bitmap(file, font->pixel_size);
+    font->bitmaps[i] = bitmap;
+  }
+
+  return 1;
+}
+
 void free_font(Font *font) {
-  for (int i = 0; i < font->char_count; i++) {
+  for (int i = 0; i < font->bitmaps_size; i++) {
     free(font->bitmaps[i]);
   }
   free(font->bitmaps);
