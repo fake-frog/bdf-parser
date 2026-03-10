@@ -37,19 +37,25 @@ int read_header(FILE *file, Font *font) {
   const int HEADER_FIELDS_SIZE = 128;
   HeaderField *header_fields =
       malloc(sizeof(HeaderField) * HEADER_FIELDS_SIZE); // todo free
+
   int count = 0;
   char line[256];
+
   while (fgets(line, sizeof(line), file) != NULL ||
          count <= HEADER_FIELDS_SIZE) {
+
     HeaderField field = {0};
     sscanf(line, "%s %d", field.name, &field.val);
     header_fields[count] = field;
+
     if (find_token(line) == CHARS) {
       sscanf(line, "%*s %d", &font->bitmaps_size);
       break;
     }
+
     count++;
   }
+
   font->header_fields = header_fields;
   // printf("READ HEADER\n");
   return 0;
@@ -65,8 +71,10 @@ Bitmap *read_bitmap(FILE *file, int pixel_size) {
   char line[256];
   char curr_char = 0;
   int encoding = 0;
+
   while (fgets(line, sizeof(line), file) != NULL ||
          count <= HEADER_FIELDS_SIZE) {
+
     if (find_token(line) == BITMAP) {
       break;
     }
@@ -86,10 +94,13 @@ Bitmap *read_bitmap(FILE *file, int pixel_size) {
   Bitmap *bitmap = malloc(sizeof(Bitmap) + pixel_size * sizeof(unsigned int));
   bitmap->c = curr_char;
   count = 0;
+
   while (fgets(line, sizeof(line), file) != NULL) {
+
     if (find_token(line) == ENDCHAR || count <= pixel_size) {
       break;
     }
+
     sscanf(line, "%x", &bitmap->rows[count]);
     count++;
   }
@@ -102,6 +113,7 @@ int init_bdf_from_file(FILE *file, Font *font) {
   int header_warning = read_header(file, font);
   char line[256];
   fgets(line, sizeof(line), file);
+
   font->bitmaps = malloc(sizeof(Bitmap *) * font->bitmaps_size);
   for (int i = 0; i < font->bitmaps_size; i++) {
     Bitmap *bitmap = read_bitmap(file, font->pixel_size);
@@ -113,9 +125,11 @@ int init_bdf_from_file(FILE *file, Font *font) {
 
 void free_font(Font *font) {
   for (int i = 0; i < font->bitmaps_size; i++) {
+    free(font->bitmaps[i]->header_fields);
     free(font->bitmaps[i]);
   }
   free(font->bitmaps);
+  free(font->header_fields);
 }
 
 int main() {
