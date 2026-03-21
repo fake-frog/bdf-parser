@@ -28,7 +28,7 @@ static int read_header(FILE *file, Font *font) {
   return 0;
 }
 
-static Bitmap *read_bitmap(FILE *file, int pixel_size) {
+static int read_bitmap(FILE *file, Bitmap *bitmap, int pixel_size) {
 
   const int HEADER_FIELDS_SIZE = 16;
   HeaderField *header_fields =
@@ -56,9 +56,8 @@ static Bitmap *read_bitmap(FILE *file, int pixel_size) {
     header_fields[count] = field;
   }
 
-  // printf("READ BITMAP HEADER\n");
+  //  printf("READ BITMAP HEADER\n");
 
-  Bitmap *bitmap = malloc(sizeof(Bitmap) + pixel_size * sizeof(unsigned int));
   bitmap->c = curr_char;
   count = 0;
 
@@ -73,7 +72,7 @@ static Bitmap *read_bitmap(FILE *file, int pixel_size) {
   }
 
   // printf("READ BITMAP -> %c -- %d\n", bitmap->c, encoding);
-  return bitmap;
+  return 0;
 }
 
 int init_bdf_from_file(FILE *file, Font *font) {
@@ -82,11 +81,13 @@ int init_bdf_from_file(FILE *file, Font *font) {
   fgets(line, sizeof(line), file);
 
   font->bitmaps = malloc(sizeof(Bitmap *) * font->bitmaps_size);
+
   for (int i = 0; i < font->bitmaps_size; i++) {
-    Bitmap *bitmap = read_bitmap(file, font->pixel_size);
+    Bitmap *bitmap =
+        malloc(sizeof(Bitmap) + font->pixel_size * sizeof(unsigned int));
+    int bitmap_warning = read_bitmap(file, bitmap, font->pixel_size);
     font->bitmaps[i] = bitmap;
   }
-
   return 1;
 }
 
