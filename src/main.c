@@ -1,6 +1,7 @@
 #include "include.h"
 
 int main() {
+  
   FILE *file = fopen("./src/bdf/Tamzen8x15r.bdf", "r");
   if (!file) {
     perror("fopen");

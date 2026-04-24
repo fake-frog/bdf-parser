@@ -36,8 +36,8 @@ const char *tokens_strings[] = {
 // clang-format on
 
 Token find_token(char *line) {
-  const int tokens_strings_size =
-      sizeof(tokens_strings) / sizeof(tokens_strings[0]);
+  
+  const int tokens_strings_size = sizeof(tokens_strings) / sizeof(tokens_strings[0]);
   char linecpy[256];
   strcpy(linecpy, line);
   linecpy[strcspn(linecpy, "\n")] = '\0';
